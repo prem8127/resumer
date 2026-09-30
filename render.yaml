@@ -2,6 +2,7 @@ services:
   - type: web
     name: resumer-api
     runtime: python
+    plan: free
     rootDir: server
     buildCommand: pip install .
     startCommand: uvicorn resumer_api.main:app --host 0.0.0.0 --port $PORT
