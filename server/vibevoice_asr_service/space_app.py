@@ -96,3 +96,11 @@ demo = gr.Interface(
     description="CPU transcription using Microsoft's VibeVoice ASR. The Resumer API supplies the private service key.",
     api_name="transcribe",
 )
+
+# Hugging Face runs the Gradio app file as a normal Python entry point. Without
+# an explicit launch call, setup completes and the container exits successfully,
+# which appears as a runtime error in the Space.
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=int(os.getenv("PORT", "7860")),
+)
