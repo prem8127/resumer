@@ -27,6 +27,6 @@ services:
       - key: VIBEVOICE_ASR_TIMEOUT_SECONDS
         value: 240
       - key: RESUMER_CORS_ORIGINS
-        value: https://REPLACE-WITH-YOUR-VERCEL-DOMAIN.vercel.app
+        value: "https://web-seven-lovat-95.vercel.app,https://web-premsagars-projects-fa9ef47b.vercel.app,http://localhost:8080,http://127.0.0.1:8080"
       - key: RESUMER_CORS_ORIGIN_REGEX
         value: ""
