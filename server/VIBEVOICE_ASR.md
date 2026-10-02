@@ -19,9 +19,9 @@ Configure the Resumer API service with:
 The included `vibevoice_asr_service` folder supports Docker hosting; its
 `space_app.py` wrapper supports Hugging Face's free ZeroGPU Gradio runtime. The
 Space compiles Microsoft's CPU runtime and downloads the 1.58 GB quantized model
-at startup. Hugging Face's free ZeroGPU tier can sleep and has per-account GPU
-quotas, so cold starts and availability are best-effort. This implementation
-uses CPU inference and does not consume GPU quota.
+at startup. It runs inference on CPU without requesting ZeroGPU, so it does not
+consume the account's GPU quota. The free Space can still sleep while idle, and
+its temporary disk is cleared on restart, so cold starts remain possible.
 
 The transcription route accepts WAV files up to 20 MB and does not store them.
 The ASR model is not included in the app bundle or in the supplied source ZIP;

@@ -16,14 +16,14 @@ models:
 
 This Space provides Microsoft's VibeVoice ASR through a Gradio endpoint for
 Resumer interview transcription. The app compiles the CPU inference binary and
-downloads the model at startup. It uses free ZeroGPU hardware without requesting
-GPU execution; the Space may sleep when idle, and its temporary disk is cleared
-on restart.
+downloads the model at startup. It does not request ZeroGPU execution, so voice
+transcription does not consume the account's free GPU quota. The Space may sleep
+when idle, and its temporary disk is cleared on restart.
 
 ## Space settings
 
-- Keep the Space on the free **ZeroGPU** hardware. Do not select a paid CPU or
-  GPU upgrade.
+- Keep the Space on **ZeroGPU** hardware. The app runs transcription on CPU and
+  does not invoke the ZeroGPU function queue.
 - Add a Space secret named `VIBEVOICE_ASR_API_KEY`. Use a newly generated secret;
   never commit it to this repository.
 
