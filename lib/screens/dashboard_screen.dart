@@ -3,18 +3,13 @@ import 'package:flutter/material.dart';
 
 import '../data/app_state.dart';
 import '../data/india_locations.dart';
-import '../data/influencer_catalog.dart';
-import '../models/influencer.dart';
 import '../models/models.dart';
 import '../services/job_search_service.dart';
-import '../services/cloud_data_service.dart';
 import 'job_site_browser_screen.dart';
 import '../widgets/route_utils.dart';
 import '../theme/app_theme.dart';
 import '../widgets/brand_widgets.dart';
-import '../widgets/influencer_widgets.dart';
 import 'ai_interview_setup_screen.dart';
-import 'influencer_details_screen.dart';
 import 'resumes_screen.dart' show TailorFlow;
 
 class DashboardScreen extends StatefulWidget {
@@ -29,7 +24,6 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
   final JobSearchService _jobSearch = JobSearchService();
-  final CloudDataService _cloud = CloudDataService();
   String _query = '';
   String _submittedQuery = '';
   String _filter = 'All';
@@ -270,27 +264,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   },
           ),
           const SizedBox(height: 18),
-
-          // -----------------------------------------------------------------
-          // Influencers status strip links to published Supabase profiles.
-          // -----------------------------------------------------------------
-          StreamBuilder<List<Influencer>>(
-            stream: _cloud.watchApprovedInfluencers(),
-            builder: (context, snapshot) {
-              final influencers = snapshot.data ?? kInfluencerCatalog;
-              if (influencers.isEmpty) return const SizedBox.shrink();
-              return Column(children: [
-                SectionHeader(
-                  title: 'Influencers',
-                  action: 'See all',
-                  onAction: () => widget.onNavigate(6),
-                ),
-                const SizedBox(height: 10),
-                _InfluencerStatusRow(influencers: influencers),
-                const SizedBox(height: 18),
-              ]);
-            },
-          ),
 
           // -----------------------------------------------------------------
           // The 3 Small Interactive Circles
@@ -1005,7 +978,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CompanyAvatar(name: job.companyName, size: 50),
+                  CompanyAvatar(
+                    name: job.companyName,
+                    size: 50,
+                    logoUrl: job.companyLogoUrl,
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -1145,97 +1122,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // ---------------------------------------------------------------------------
 // 3 Interactive Insight Circles Row
 // ---------------------------------------------------------------------------
-
-/// Horizontal "status circles" strip — a WhatsApp-Status-style entry point
-/// into the existing Influencer flow. Tapping a circle opens the same
-/// [InfluencerDetailsScreen] used by the dedicated Influencers tab; no new
-/// influencer/course/test/certificate system is introduced here.
-class _InfluencerStatusRow extends StatelessWidget {
-  const _InfluencerStatusRow({required this.influencers});
-
-  final List<Influencer> influencers;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 96,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: influencers.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          final influencer = influencers[index];
-          return _InfluencerStatusCircle(
-            influencer: influencer,
-            onTap: () => pushRouteOnce(
-              context,
-              (_) => InfluencerDetailsScreen(influencer: influencer),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _InfluencerStatusCircle extends StatelessWidget {
-  const _InfluencerStatusCircle({
-    required this.influencer,
-    required this.onTap,
-  });
-
-  final Influencer influencer;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 68,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(2.5),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(colors: [
-                  ...AppColors.prism,
-                  ...AppColors.prism,
-                ]),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(2.5),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                ),
-                child: InfluencerAvatar(
-                  name: influencer.name,
-                  size: 56,
-                  photoUrl: influencer.profilePhotoUrl,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              influencer.name.split(' ').first,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _AiInterviewBanner extends StatelessWidget {
   const _AiInterviewBanner({required this.onTap});
@@ -1534,6 +1420,7 @@ class _JobProductCard extends StatelessWidget {
                 children: [
                   CompanyLogoBanner(
                     name: job.companyName,
+                    logoUrl: job.companyLogoUrl,
                     height: 114,
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(15)),

@@ -4,13 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:resumer_app/app.dart';
 import 'package:resumer_app/data/app_state.dart';
 import 'package:resumer_app/screens/login_screen.dart';
+import 'package:resumer_app/screens/influencers_screen.dart';
 import 'package:resumer_app/screens/resume_preview_screen.dart';
 
 import 'fixtures.dart';
 
 Future<void> finishSplash(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 3150));
-  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 /// Simulates a completed Google sign-in by flipping the session flag directly;
@@ -26,7 +27,11 @@ Future<void> dismissLocationPrompt(WidgetTester tester) async {
   final sheetContext =
       tester.element(find.byType(DraggableScrollableSheet).first);
   Navigator.of(sheetContext).pop();
-  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
+Future<void> flushStateSaveTimer(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 200));
 }
 
 void main() {
@@ -53,7 +58,7 @@ void main() {
     expect(find.text('Continue with Google'), findsOneWidget);
   });
 
-  testWidgets('onboarding wordmark fits a narrow viewport',
+  testWidgets('first login goes straight to the app on a narrow viewport',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
@@ -64,7 +69,7 @@ void main() {
     await tester.pumpWidget(AppRoot(state: state));
     await finishSplash(tester);
 
-    expect(find.text('Let’s start with you.'), findsOneWidget);
+    expect(find.text('Find work\nthat fits.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -83,7 +88,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Learn shows starter courses and opens the mentors tab',
+  testWidgets('Learn shows courses and opens Meet the Real Mentors',
       (WidgetTester tester) async {
     final state = fixtureState();
     await tester.pumpWidget(AppRoot(state: state));
@@ -91,30 +96,28 @@ void main() {
     await dismissLocationPrompt(tester);
 
     await tester.tap(find.text('Learn').last);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Python Masterclass'), findsOneWidget);
 
-    await tester.tap(find.text('Meet the mentors'));
-    await tester.pumpAndSettle();
-    expect(find.text('All Influencers'), findsOneWidget);
+    await tester.tap(find.ancestor(
+      of: find.text('Meet the Real Mentors'),
+      matching: find.byType(OutlinedButton),
+    ));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(InfluencersScreen), findsOneWidget);
+    expect(find.text('All mentors'), findsOneWidget);
     expect(find.text('John Doe'), findsOneWidget);
+    await flushStateSaveTimer(tester);
   });
 
-  testWidgets('login and onboarding open the jobs-first home',
+  testWidgets('login opens the jobs-first home without resume onboarding',
       (WidgetTester tester) async {
     final state = fixtureState(onboarded: false);
     await tester.pumpWidget(AppRoot(state: state));
     await finishSplash(tester);
 
-    expect(find.text('Let’s start with you.'), findsOneWidget);
-    expect(find.text('STEP 1 OF 5'), findsOneWidget);
-
-    for (var step = 1; step < 5; step++) {
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(find.text('Build my resume'));
-    await tester.pumpAndSettle();
+    expect(find.text('Let’s start with you.'), findsNothing);
+    expect(find.text('STEP 1 OF 5'), findsNothing);
 
     // The preferred location is persisted from the fixture, so returning to
     // Explore never re-asks — the feed loads straight away.
@@ -136,6 +139,7 @@ void main() {
     expect(find.text('Open roles'), findsOneWidget);
     expect(find.text('Career'), findsOneWidget);
     expect(find.text('Tracker'), findsWidgets);
+    await flushStateSaveTimer(tester);
   });
 
   testWidgets('career profile is a dedicated editable tab',
@@ -152,7 +156,10 @@ void main() {
 
     expect(find.text('Career profile'), findsOneWidget);
     expect(find.text('Evidence readiness'), findsOneWidget);
+    expect(find.text('Meet the Real Mentors'), findsOneWidget);
+    expect(find.text('John'), findsOneWidget);
     expect(find.text('All evidence'), findsOneWidget);
+    expect(find.text('Influencers'), findsNothing);
 
     await tester.tap(find.text('B.Tech, Computer Science & Engineering'));
     await tester.pumpAndSettle();

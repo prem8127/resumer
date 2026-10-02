@@ -61,6 +61,7 @@ class JobOpening {
     required this.skills,
     required this.matchScore,
     this.url,
+    this.companyLogoUrl,
     this.saved = false,
   });
 
@@ -79,9 +80,10 @@ class JobOpening {
   /// Direct link to the posting on the source board, used to open the
   /// application page in the browser.
   final String? url;
+  final String? companyLogoUrl;
   final bool saved;
 
-  JobOpening copyWith({bool? saved, String? url}) {
+  JobOpening copyWith({bool? saved, String? url, String? companyLogoUrl}) {
     return JobOpening(
       id: id,
       title: title,
@@ -95,6 +97,7 @@ class JobOpening {
       skills: skills,
       matchScore: matchScore,
       url: url ?? this.url,
+      companyLogoUrl: companyLogoUrl ?? this.companyLogoUrl,
       saved: saved ?? this.saved,
     );
   }

@@ -5,7 +5,6 @@ import 'screens/applications_screen.dart';
 import 'screens/career_profile_screen.dart';
 import 'screens/courses_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/influencers_screen.dart';
 import 'screens/launch_flow.dart';
 import 'screens/profile_screen.dart';
 import 'screens/resumes_screen.dart';
@@ -85,11 +84,6 @@ class _HomeShellState extends State<HomeShell> {
         activeIcon: Icons.school_rounded,
         label: 'Learn',
       ),
-      const DockItem(
-        icon: Icons.groups_outlined,
-        activeIcon: Icons.groups_rounded,
-        label: 'Influencers',
-      ),
     ];
 
     return Scaffold(
@@ -103,8 +97,7 @@ class _HomeShellState extends State<HomeShell> {
           const CareerProfileScreen(),
           const ApplicationsScreen(),
           const ProfileScreen(),
-          CoursesScreen(onExploreMentors: () => setState(() => _index = 6)),
-          const InfluencersScreen(),
+          const CoursesScreen(),
         ],
       ),
       bottomNavigationBar: SafeArea(

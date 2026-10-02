@@ -176,7 +176,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-          'Imported ${result.courses} courses and ${result.influencers} influencers. Existing records were kept.',
+          'Imported ${result.courses} courses and ${result.influencers} mentors. Existing records were kept.',
         ),
       ));
     } on Object catch (error) {
@@ -295,7 +295,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               FilledButton.tonalIcon(
                 onPressed: () => _editInfluencer(),
                 icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Add influencer'),
+                label: const Text('Add mentor'),
               ),
               FilledButton.tonalIcon(
                 onPressed: () => _createRecord('courses'),
@@ -349,7 +349,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (collection == 'influencers')
                             if (data['status'] != 'approved')
                               IconButton(
-                                tooltip: 'Publish influencer',
+                                tooltip: 'Publish mentor',
                                 icon: const Icon(Icons.publish_outlined),
                                 onPressed: () => _moderate(
                                   'influencers',
@@ -360,8 +360,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (collection == 'influencers')
                             IconButton(
                               tooltip: (data['verified'] as bool? ?? false)
-                                  ? 'Unverify influencer'
-                                  : 'Verify influencer',
+                                  ? 'Unverify mentor'
+                                  : 'Verify mentor',
                               icon: Icon((data['verified'] as bool? ?? false)
                                   ? Icons.verified
                                   : Icons.verified_outlined),
@@ -393,7 +393,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-            collection == 'courses' ? 'Create course' : 'Create influencer'),
+            collection == 'courses' ? 'Create course' : 'Create mentor'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
               controller: name,
@@ -487,7 +487,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, redraw) => AlertDialog(
-          title: Text(id == null ? 'Add influencer' : 'Edit influencer'),
+          title: Text(id == null ? 'Add mentor' : 'Edit mentor'),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
@@ -623,7 +623,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
       if (mounted) _message('Influencer profile saved.');
     } on Object catch (error) {
-      if (mounted) _message('Could not save influencer: $error');
+      if (mounted) _message('Could not save mentor: $error');
     }
   }
 
@@ -826,7 +826,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   String _label(String value) => switch (value) {
         'users' => 'Users',
-        'influencers' => 'Influencers',
+        'influencers' => 'Mentors',
         'courses' => 'Courses',
         _ => 'Content',
       };

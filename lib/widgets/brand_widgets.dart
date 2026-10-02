@@ -494,12 +494,14 @@ class CompanyLogoBanner extends StatelessWidget {
     this.width,
     this.height = 114,
     this.borderRadius = const BorderRadius.vertical(top: Radius.circular(15)),
+    this.logoUrl,
   });
 
   final String name;
   final double? width;
   final double height;
   final BorderRadius borderRadius;
+  final String? logoUrl;
 
   static String? _assetPath(String name) {
     final n = name.trim().toLowerCase();
@@ -554,6 +556,17 @@ class CompanyLogoBanner extends StatelessWidget {
                     CompanyAvatar(name: name, size: 54),
               ),
             )
+          else if (logoUrl != null &&
+              (Uri.tryParse(logoUrl!)?.scheme == 'https' ||
+                  Uri.tryParse(logoUrl!)?.scheme == 'http'))
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Image.network(
+                logoUrl!,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => CompanyAvatar(name: name, size: 54),
+              ),
+            )
           else
             CompanyAvatar(name: name, size: 52),
         ],
@@ -579,10 +592,11 @@ class _DotPatternPainter extends CustomPainter {
 }
 
 class CompanyAvatar extends StatelessWidget {
-  const CompanyAvatar({super.key, required this.name, this.size = 38});
+  const CompanyAvatar({super.key, required this.name, this.size = 38, this.logoUrl});
 
   final String name;
   final double size;
+  final String? logoUrl;
 
   static String? assetPathFor(String name) =>
       CompanyLogoBanner._assetPath(name);
@@ -616,6 +630,24 @@ class CompanyAvatar extends StatelessWidget {
       );
     }
 
+    final uri = Uri.tryParse(logoUrl ?? '');
+    if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http')) {
+      return Container(
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(size * 0.12),
+        decoration: BoxDecoration(
+          color: dark ? AppColors.darkSurfaceSubtle : Colors.white,
+          borderRadius: BorderRadius.circular(size * .28),
+          border: Border.all(color: dark ? AppColors.darkBorder : AppColors.line),
+        ),
+        child: Image.network(
+          uri.toString(),
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => _buildFallback(context, dark, normalized),
+        ),
+      );
+    }
     return _buildFallback(context, dark, normalized);
   }
 

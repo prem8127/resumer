@@ -145,6 +145,7 @@ extension JobOpeningSerialization on JobOpening {
         'skills': skills,
         'matchScore': matchScore,
         if (url != null) 'url': url,
+        if (companyLogoUrl != null) 'companyLogoUrl': companyLogoUrl,
         'saved': saved,
       };
 
@@ -162,6 +163,7 @@ extension JobOpeningSerialization on JobOpening {
         skills: [...(json['skills'] as List?)?.whereType<String>() ?? const []],
         matchScore: json['matchScore'] as int? ?? 50,
         url: json['url'] as String?,
+        companyLogoUrl: json['companyLogoUrl'] as String?,
         saved: json['saved'] as bool? ?? false,
       );
 }

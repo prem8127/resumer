@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/course_catalog.dart';
+import '../data/influencer_catalog.dart';
 import '../models/influencer.dart';
 import '../services/cloud_data_service.dart';
 import '../theme/app_theme.dart';
@@ -9,7 +10,7 @@ import '../widgets/influencer_widgets.dart';
 import '../widgets/route_utils.dart';
 import 'influencer_details_screen.dart';
 
-/// "Influencers" — browse course creators and open their profile.
+/// Browse course mentors and open their profile.
 ///
 /// This is the entry point for the Influencer Details flow: tapping a card
 /// pushes [InfluencerDetailsScreen]. Course/test/certificate screens are not
@@ -77,12 +78,15 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
     return StreamBuilder<List<Influencer>>(
       stream: _influencersStream,
       builder: (context, snapshot) {
-        final influencers = _filtered(snapshot.data ?? const []);
+        final catalog = snapshot.data == null || snapshot.data!.isEmpty
+            ? kInfluencerCatalog
+            : snapshot.data!;
+        final influencers = _filtered(catalog);
         return SafeArea(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 120),
             children: [
-              Text('Influencers',
+              Text('Meet the Real Mentors',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 4),
               Text(
@@ -94,7 +98,7 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                 controller: _searchController,
                 onChanged: (v) => setState(() => _query = v),
                 decoration: InputDecoration(
-                  hintText: 'Search influencers',
+                hintText: 'Search mentors',
                   prefixIcon: const Icon(Icons.search_rounded),
                   filled: true,
                   border: OutlineInputBorder(
@@ -104,12 +108,12 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              const SectionHeader(title: 'All Influencers'),
+              const SectionHeader(title: 'All mentors'),
               const SizedBox(height: 10),
               if (snapshot.hasError)
                 EmptyState(
                   icon: Icons.cloud_off_rounded,
-                  title: 'Could not load influencers',
+                  title: 'Could not load mentors',
                   subtitle: 'Check your connection and try again.',
                   actionLabel: 'Retry',
                   onAction: () => setState(
@@ -117,18 +121,11 @@ class _InfluencersScreenState extends State<InfluencersScreen> {
                         _cloud.watchApprovedInfluencers(),
                   ),
                 )
-              else if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 48),
-                  child: Center(child: CircularProgressIndicator()),
-                )
               else if (influencers.isEmpty)
                 const EmptyState(
                   icon: Icons.person_search_rounded,
-                  title: 'No influencers found',
-                  subtitle:
-                      'Published influencer profiles will appear here.',
+                  title: 'No mentors found',
+                  subtitle: 'Published mentor profiles will appear here.',
                 )
               else
                 for (final influencer in influencers) ...[

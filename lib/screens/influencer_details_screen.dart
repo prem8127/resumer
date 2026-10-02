@@ -204,7 +204,7 @@ class InfluencerDetailsScreen extends StatelessWidget {
                   const EmptyState(
                     icon: Icons.menu_book_outlined,
                     title: 'No courses yet',
-                    subtitle: "This influencer hasn't published a course yet.",
+                    subtitle: "This mentor hasn't published a course yet.",
                   )
                 else
                   for (final course in courses) ...[

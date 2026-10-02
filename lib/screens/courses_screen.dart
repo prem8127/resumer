@@ -6,15 +6,15 @@ import '../models/models.dart';
 import '../services/cloud_data_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/brand_widgets.dart';
+import '../widgets/mentor_carousel.dart';
 import '../widgets/route_utils.dart';
 import 'course_learning_screen.dart';
+import 'influencers_screen.dart';
 
 /// "Explore Courses" — browse the catalog and jump back into courses already
 /// in progress ("My Learning").
 class CoursesScreen extends StatefulWidget {
-  const CoursesScreen({super.key, this.onExploreMentors});
-
-  final VoidCallback? onExploreMentors;
+  const CoursesScreen({super.key});
 
   @override
   State<CoursesScreen> createState() => _CoursesScreenState();
@@ -24,6 +24,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   String _category = 'All';
+  bool _showMentors = false;
   final CloudDataService _cloud = CloudDataService();
 
   @override
@@ -59,6 +60,20 @@ class _CoursesScreenState extends State<CoursesScreen> {
     final state = AppScope.of(context);
     final enrolled = state.enrolledCourses;
 
+    if (_showMentors) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Back to courses',
+            onPressed: () => setState(() => _showMentors = false),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          title: const Text('Meet the Real Mentors'),
+        ),
+        body: const InfluencersScreen(),
+      );
+    }
+
     return StreamBuilder<List<Course>>(
       stream: _cloud.watchApprovedCourses(),
       builder: (context, snapshot) {
@@ -78,13 +93,15 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 'Courses, tests and certificates for your career profile.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
+              const MentorCarousel(),
+              const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(
-                  onPressed: widget.onExploreMentors,
+                  onPressed: () => setState(() => _showMentors = true),
                   icon: const Icon(Icons.groups_outlined),
-                  label: const Text('Meet the mentors'),
+                  label: const Text('Meet the Real Mentors'),
                 ),
               ),
               const SizedBox(height: 18),

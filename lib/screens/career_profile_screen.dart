@@ -4,6 +4,7 @@ import '../data/app_state.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/brand_widgets.dart';
+import '../widgets/mentor_carousel.dart';
 
 class CareerProfileScreen extends StatefulWidget {
   const CareerProfileScreen({super.key});
@@ -59,6 +60,8 @@ class _CareerProfileScreenState extends State<CareerProfileScreen> {
             total: state.careerItems.length,
             verified: verified,
           ),
+          const SizedBox(height: 20),
+          const MentorCarousel(),
           const SizedBox(height: 24),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,

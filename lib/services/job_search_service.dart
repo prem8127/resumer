@@ -178,6 +178,7 @@ class JobSearchService {
         evidenceTokens,
       ),
       url: job.applyUrl ?? job.jobUrl,
+      companyLogoUrl: job.companyLogo,
     );
   }
 

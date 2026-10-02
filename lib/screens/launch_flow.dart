@@ -43,14 +43,6 @@ class _LaunchFlowState extends State<LaunchFlow> {
     super.dispose();
   }
 
-  void _retryRoleCheck() {
-    final userId = AuthService.instance.currentUser?.id;
-    setState(() {
-      _roleUserId = userId;
-      _roleFuture = _cloud.currentRole();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
@@ -62,6 +54,11 @@ class _LaunchFlowState extends State<LaunchFlow> {
       if (userId != null && userId != _roleUserId) {
         _roleUserId = userId;
         _roleFuture = _cloud.currentRole();
+      } else if (userId == null && _roleFuture == null) {
+        // Test and restored local sessions can be authenticated before the
+        // Supabase user object is available. Treat those as regular accounts
+        // so the app shell never waits indefinitely for an admin role lookup.
+        _roleFuture = Future<AppRole>.value(AppRole.user);
       }
     }
     return AnimatedSwitcher(
@@ -82,28 +79,9 @@ class _LaunchFlowState extends State<LaunchFlow> {
                       );
                     }
                     if (snapshot.hasError) {
-                      return Scaffold(
-                        key: const ValueKey('role-error'),
-                        body: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  'Could not verify account access. Try again before continuing.',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                FilledButton.icon(
-                                  onPressed: _retryRoleCheck,
-                                  icon: const Icon(Icons.refresh_rounded),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      return KeyedSubtree(
+                        key: const ValueKey('home'),
+                        child: widget.home,
                       );
                     }
                     final role = snapshot.data;
@@ -113,11 +91,10 @@ class _LaunchFlowState extends State<LaunchFlow> {
                         child: AdminDashboardScreen(),
                       );
                     }
-                    return state.onboardingCompleted
-                        ? KeyedSubtree(
-                            key: const ValueKey('home'), child: widget.home)
-                        : const BasicResumeOnboarding(
-                            key: ValueKey('onboarding'));
+                    return KeyedSubtree(
+                      key: const ValueKey('home'),
+                      child: widget.home,
+                    );
                   },
                 ),
     );
