@@ -19,12 +19,13 @@ def make_settings(
     rapidapi_key: str = "test-rapidapi-key",
     vibevoice_asr_url: str = "",
     vibevoice_asr_api_key: str = "",
+    cors_origins: tuple[str, ...] = (),
 ) -> Settings:
     return Settings(
         groq_api_key=groq_api_key,
         groq_model="openai/gpt-oss-20b",
         api_key="",
-        cors_origins=(),
+        cors_origins=cors_origins,
         cors_origin_regex=None,
         request_timeout_seconds=5,
         max_concurrency=1,
@@ -55,6 +56,7 @@ def make_client() -> Callable[..., TestClient]:
         rapidapi_key: str = "test-rapidapi-key",
         vibevoice_asr_url: str = "",
         vibevoice_asr_api_key: str = "",
+        cors_origins: tuple[str, ...] = (),
     ) -> TestClient:
         transport = httpx.MockTransport(
             handler
@@ -69,6 +71,7 @@ def make_client() -> Callable[..., TestClient]:
                 rapidapi_key=rapidapi_key,
                 vibevoice_asr_url=vibevoice_asr_url,
                 vibevoice_asr_api_key=vibevoice_asr_api_key,
+                cors_origins=cors_origins,
             ),
             transport=transport,
             supabase_token_verifier=supabase_token_verifier,

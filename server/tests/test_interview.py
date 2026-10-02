@@ -4,6 +4,8 @@ import json
 
 import httpx
 
+from resumer_api.config import PRODUCTION_WEB_ORIGINS, Settings
+
 VALID_PAYLOAD = {
     "model": "openai/gpt-oss-20b",
     "targetRole": "Flutter Developer",
@@ -126,3 +128,28 @@ def test_transcribe_rejects_non_wav_upload(make_client):
             files={"file": ("answer.wav", b"not a wav", "audio/wav")},
         )
     assert response.status_code == 415
+
+
+def test_production_vercel_origin_passes_cors_preflight(make_client):
+    origin = "https://web-seven-lovat-95.vercel.app"
+    with make_client(cors_origins=(origin,)) as client:
+        response = client.options(
+            "/v1/interview",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+
+
+def test_production_vercel_origins_are_kept_with_environment_override(monkeypatch):
+    monkeypatch.setenv("RESUMER_CORS_ORIGINS", "http://localhost:8080")
+
+    settings = Settings.from_environment()
+
+    assert all(origin in settings.cors_origins for origin in PRODUCTION_WEB_ORIGINS)
+    assert "http://localhost:8080" in settings.cors_origins

@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 DEFAULT_GROQ_API_KEY = ""
+PRODUCTION_WEB_ORIGINS = (
+    "https://web-seven-lovat-95.vercel.app",
+    "https://web-premsagars-projects-fa9ef47b.vercel.app",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +35,7 @@ class Settings:
 
     @classmethod
     def from_environment(cls) -> "Settings":
-        origins = tuple(
+        configured_origins = tuple(
             origin.strip()
             for origin in os.getenv(
                 "RESUMER_CORS_ORIGINS",
@@ -39,6 +43,7 @@ class Settings:
             ).split(",")
             if origin.strip()
         )
+        origins = tuple(dict.fromkeys((*configured_origins, *PRODUCTION_WEB_ORIGINS)))
         return cls(
             groq_api_key=os.getenv("GROQ_API_KEY", DEFAULT_GROQ_API_KEY).strip()
             or DEFAULT_GROQ_API_KEY,
