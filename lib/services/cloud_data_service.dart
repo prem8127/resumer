@@ -59,12 +59,11 @@ class CloudDataService {
     await _db.from('user_state').upsert({'user_id': uid, 'state': state});
     final profile = value['user'];
     if (profile is Map<String, dynamic>) {
-      await _db.from('profiles').upsert({
-        'id': uid,
+      await _db.from('profiles').update({
         'name': profile['n'] ?? '',
         'email': profile['e'] ?? '',
         'headline': profile['h'] ?? '',
-      });
+      }).eq('id', uid);
     }
     for (final pair in const [
       ('careerItems', 'career_items'),
