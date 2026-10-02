@@ -20,6 +20,12 @@ services:
         sync: false
       - key: RAPIDAPI_KEY
         sync: false
+      - key: VIBEVOICE_ASR_URL
+        sync: false
+      - key: VIBEVOICE_ASR_API_KEY
+        sync: false
+      - key: VIBEVOICE_ASR_TIMEOUT_SECONDS
+        value: 240
       - key: RESUMER_CORS_ORIGINS
         value: https://REPLACE-WITH-YOUR-VERCEL-DOMAIN.vercel.app
       - key: RESUMER_CORS_ORIGIN_REGEX

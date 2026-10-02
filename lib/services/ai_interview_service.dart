@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -51,9 +52,12 @@ class AiInterviewService {
     http.Client? client,
     String? proxyUrl,
     String? analysisProxyUrl,
+    String? transcriptionProxyUrl,
   })  : _client = client ?? http.Client(),
         _proxyEndpoint = proxyUrl ?? _configuredProxyUrl,
         _analysisEndpoint = analysisProxyUrl ?? _configuredAnalysisProxyUrl,
+        _transcriptionEndpoint =
+            transcriptionProxyUrl ?? _configuredTranscriptionProxyUrl,
         _useEmbeddedApi = client == null &&
             proxyUrl == null &&
             _embeddedGeminiApiKey.isNotEmpty;
@@ -71,6 +75,10 @@ class AiInterviewService {
     'RESUMER_AI_INTERVIEW_ANALYSIS_PROXY_URL',
     defaultValue: '$_configuredApiBaseUrl/v1/interview/analyze',
   );
+  static const _configuredTranscriptionProxyUrl = String.fromEnvironment(
+    'RESUMER_AI_INTERVIEW_TRANSCRIPTION_PROXY_URL',
+    defaultValue: '$_configuredApiBaseUrl/v1/interview/transcribe',
+  );
   static const _configuredApiKey = String.fromEnvironment('RESUMER_API_KEY');
 
   // No defaultValue here on purpose — a hardcoded fallback key was
@@ -87,6 +95,7 @@ class AiInterviewService {
   final http.Client _client;
   final String _proxyEndpoint;
   final String _analysisEndpoint;
+  final String _transcriptionEndpoint;
   final bool _useEmbeddedApi;
 
   bool get isConfigured => _useEmbeddedApi
@@ -94,6 +103,71 @@ class AiInterviewService {
       : _proxyEndpoint.isNotEmpty;
 
   bool get usesSecureProxy => !_useEmbeddedApi && _proxyEndpoint.isNotEmpty;
+
+  /// Sends a WAV recording through Resumer's API proxy to the hosted
+  /// VibeVoice ASR service. Raw recordings are not stored by this client.
+  Future<String> transcribeAnswer(Uint8List wavAudio) async {
+    if (wavAudio.length < 44) {
+      throw const AiInterviewException('The recording is empty. Try again.');
+    }
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse(_transcriptionEndpoint),
+    )
+      ..headers.addAll({
+        if (_configuredApiKey.isNotEmpty) 'X-API-Key': _configuredApiKey,
+      })
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          wavAudio,
+          filename: 'interview-answer.wav',
+        ),
+      );
+
+    try {
+      final streamed = await _client.send(request).timeout(
+            const Duration(seconds: 300),
+          );
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AiInterviewException(
+          _transcriptionMessageForStatus(response.statusCode),
+          transient: response.statusCode == 429 || response.statusCode >= 500,
+        );
+      }
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map<String, dynamic> || decoded['text'] is! String) {
+        throw const AiInterviewException(
+          'VibeVoice returned an unexpected transcription.',
+        );
+      }
+      final text = (decoded['text'] as String).trim();
+      if (text.isEmpty) {
+        throw const AiInterviewException(
+          'No speech was recognized. Try recording again.',
+        );
+      }
+      return text;
+    } on TimeoutException {
+      throw const AiInterviewException(
+        'Transcription took too long. Please try again.',
+        transient: true,
+      );
+    } on http.ClientException {
+      throw const AiInterviewException(
+        'Could not reach the VibeVoice service. Check your connection.',
+        transient: true,
+      );
+    } on AiInterviewException {
+      rethrow;
+    } on Object {
+      throw const AiInterviewException(
+        'Could not read the transcription. Please try again.',
+        transient: true,
+      );
+    }
+  }
 
   Future<List<InterviewQuestion>> generateQuestions({
     required String targetRole,
@@ -270,8 +344,9 @@ class AiInterviewService {
       final entry = transcript[i];
       final question = entry is Map ? entry['question'] : '';
       final answer = entry is Map ? entry['answer'] : '';
-      final answerText =
-          (answer is String && answer.trim().isNotEmpty) ? answer : '(no answer given)';
+      final answerText = (answer is String && answer.trim().isNotEmpty)
+          ? answer
+          : '(no answer given)';
       buffer.writeln('Q${i + 1}: $question\nA${i + 1}: $answerText\n');
     }
     return '''You are Resumer's AI interview coach. Score the candidate's mock $interviewType interview for the role of $targetRole.
@@ -493,6 +568,16 @@ Rules:
         429 => 'Gemini rate limit reached. Please wait and try again.',
         _ when status >= 500 => 'Gemini is temporarily unavailable.',
         _ => 'Question generation failed with service error $status.',
+      };
+
+  String _transcriptionMessageForStatus(int status) => switch (status) {
+        400 || 415 => 'The recording format is not supported. Try again.',
+        413 => 'The recording is too long. Try a shorter answer.',
+        503 => 'Voice transcription is not set up on the server yet.',
+        502 || 504 => 'VibeVoice transcription is temporarily unavailable.',
+        _ when status >= 500 =>
+          'VibeVoice transcription failed. Try again later.',
+        _ => 'Could not transcribe this recording (error $status).',
       };
 
   String _string(Object? value, {String fallback = ''}) {

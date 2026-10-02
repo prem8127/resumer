@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:record/record.dart';
 
 import '../data/app_state.dart';
 import '../services/ai_interview_service.dart';
@@ -51,6 +54,12 @@ class _AiInterviewScreenState extends State<AiInterviewScreen> {
   int _index = 0;
   final List<String> _answers = [];
   final TextEditingController _answerController = TextEditingController();
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final FlutterTts _questionVoice = FlutterTts();
+  StreamSubscription<Uint8List>? _audioSubscription;
+  final List<Uint8List> _audioChunks = [];
+  bool _isRecording = false;
+  bool _isTranscribing = false;
   bool _finished = false;
 
   _AnalysisState? _analysisState;
@@ -67,8 +76,117 @@ class _AiInterviewScreenState extends State<AiInterviewScreen> {
   @override
   void dispose() {
     _answerController.dispose();
+    unawaited(_audioSubscription?.cancel());
+    unawaited(_audioRecorder.dispose());
+    unawaited(_questionVoice.stop());
     if (_ownsService) _service.dispose();
     super.dispose();
+  }
+
+  Future<void> _speakQuestion() async {
+    try {
+      await _questionVoice.setLanguage('en-US');
+      await _questionVoice.setSpeechRate(0.48);
+      await _questionVoice.speak(_questions[_index].text);
+    } on Object {
+      _showMessage('Question audio is unavailable on this device.');
+    }
+  }
+
+  Future<void> _startVoiceAnswer() async {
+    try {
+      if (!await _audioRecorder.hasPermission()) {
+        _showMessage('Allow microphone access to speak your answer.');
+        return;
+      }
+      _audioChunks.clear();
+      final stream = await _audioRecorder.startStream(
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
+      );
+      _audioSubscription = stream.listen(
+        _audioChunks.add,
+        onError: (_) {
+          if (mounted) setState(() => _isRecording = false);
+        },
+      );
+      if (mounted) setState(() => _isRecording = true);
+    } on Object {
+      _showMessage('Could not start the microphone. Try again.');
+    }
+  }
+
+  Future<void> _stopAndTranscribe() async {
+    if (!_isRecording || _isTranscribing) return;
+    setState(() {
+      _isRecording = false;
+      _isTranscribing = true;
+    });
+    try {
+      await _audioRecorder.stop();
+      await _audioSubscription?.cancel();
+      _audioSubscription = null;
+      final pcm = BytesBuilder(copy: false);
+      for (final chunk in _audioChunks) {
+        pcm.add(chunk);
+      }
+      final bytes = pcm.takeBytes();
+      if (bytes.isEmpty) {
+        throw const AiInterviewException('No audio was recorded. Try again.');
+      }
+      final transcript = await _service.transcribeAnswer(_waveFile(bytes));
+      if (!mounted) return;
+      final previous = _answerController.text.trim();
+      _answerController.text =
+          previous.isEmpty ? transcript : '$previous\n$transcript';
+      _answerController.selection = TextSelection.collapsed(
+        offset: _answerController.text.length,
+      );
+      _showMessage('Transcript added. Review it before continuing.');
+    } on AiInterviewException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } on Object {
+      if (mounted) {
+        _showMessage('Could not transcribe the recording. Try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _isTranscribing = false);
+    }
+  }
+
+  Uint8List _waveFile(Uint8List pcm) {
+    final bytes = ByteData(44 + pcm.length);
+    void writeTag(int offset, String value) {
+      for (var i = 0; i < value.length; i++) {
+        bytes.setUint8(offset + i, value.codeUnitAt(i));
+      }
+    }
+
+    writeTag(0, 'RIFF');
+    bytes.setUint32(4, 36 + pcm.length, Endian.little);
+    writeTag(8, 'WAVE');
+    writeTag(12, 'fmt ');
+    bytes.setUint32(16, 16, Endian.little);
+    bytes.setUint16(20, 1, Endian.little);
+    bytes.setUint16(22, 1, Endian.little);
+    bytes.setUint32(24, 16000, Endian.little);
+    bytes.setUint32(28, 32000, Endian.little);
+    bytes.setUint16(32, 2, Endian.little);
+    bytes.setUint16(34, 16, Endian.little);
+    writeTag(36, 'data');
+    bytes.setUint32(40, pcm.length, Endian.little);
+    bytes.buffer.asUint8List().setRange(44, 44 + pcm.length, pcm);
+    return bytes.buffer.asUint8List();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _loadQuestions() async {
@@ -249,6 +367,46 @@ class _AiInterviewScreenState extends State<AiInterviewScreen> {
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 20),
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _isTranscribing ? null : _speakQuestion,
+                    icon: const Icon(Icons.volume_up_outlined),
+                    label: const Text('Listen to question'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _isTranscribing
+                        ? null
+                        : _isRecording
+                            ? _stopAndTranscribe
+                            : _startVoiceAnswer,
+                    icon: Icon(
+                      _isTranscribing
+                          ? Icons.hourglass_top_rounded
+                          : _isRecording
+                              ? Icons.stop_rounded
+                              : Icons.mic_none_rounded,
+                    ),
+                    label: Text(
+                      _isTranscribing
+                          ? 'Transcribing…'
+                          : _isRecording
+                              ? 'Stop & transcribe'
+                              : 'Speak your answer',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _isRecording
+                    ? 'Recording… tap stop when you finish.'
+                    : 'Your recording is sent for transcription and is not saved. Review the transcript before continuing.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
               TextField(
                 controller: _answerController,
                 minLines: 6,
@@ -269,7 +427,8 @@ class _AiInterviewScreenState extends State<AiInterviewScreen> {
             child: SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _nextQuestion,
+                onPressed:
+                    _isRecording || _isTranscribing ? null : _nextQuestion,
                 child: Text(isLast ? 'Finish interview' : 'Next question'),
               ),
             ),
@@ -286,7 +445,8 @@ class _AiInterviewScreenState extends State<AiInterviewScreen> {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       physics: const BouncingScrollPhysics(),
       children: [
-        Icon(Icons.emoji_events_rounded, size: 52, color: AppColors.orange),
+        const Icon(Icons.emoji_events_rounded,
+            size: 52, color: AppColors.orange),
         const SizedBox(height: 16),
         Text('Interview complete',
             style: Theme.of(context).textTheme.headlineSmall),
@@ -453,7 +613,7 @@ class _AnalysisCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.auto_awesome_rounded,
+                  const Icon(Icons.auto_awesome_rounded,
                       size: 18, color: AppColors.orange),
                   const SizedBox(width: 8),
                   Text('AI performance score',

@@ -7,7 +7,18 @@ from datetime import datetime, timezone
 import hashlib
 import secrets
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
@@ -429,6 +440,67 @@ def create_app(
             status_code=upstream.status_code,
             media_type=upstream.headers.get("content-type", "application/json"),
         )
+
+    @app.post("/v1/interview/transcribe", dependencies=[Depends(require_api_key)])
+    async def transcribe_interview_answer(
+        request: Request,
+        file: UploadFile = File(...),
+    ) -> dict[str, str]:
+        """Forward a short WAV answer to the separately hosted VibeVoice ASR."""
+        if not active_settings.vibevoice_asr_url:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="VibeVoice transcription is not configured on the server",
+            )
+        audio = await file.read(20 * 1024 * 1024 + 1)
+        if not audio:
+            raise HTTPException(status_code=400, detail="Audio recording is empty")
+        if len(audio) > 20 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Audio recording is too large")
+        if not audio.startswith(b"RIFF") or audio[8:12] != b"WAVE":
+            raise HTTPException(status_code=415, detail="Expected a WAV recording")
+
+        headers = {}
+        if active_settings.vibevoice_asr_api_key:
+            headers["Authorization"] = (
+                f"Bearer {active_settings.vibevoice_asr_api_key}"
+            )
+        try:
+            upstream = await request.app.state.http.post(
+                active_settings.vibevoice_asr_url,
+                files={"file": ("answer.wav", audio, "audio/wav")},
+                headers=headers,
+                timeout=active_settings.vibevoice_asr_timeout_seconds,
+            )
+        except httpx.TimeoutException as error:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="VibeVoice transcription timed out",
+            ) from error
+        except httpx.HTTPError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not reach the VibeVoice transcription service",
+            ) from error
+        if upstream.status_code < 200 or upstream.status_code >= 300:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="VibeVoice could not transcribe this recording",
+            )
+        try:
+            payload = upstream.json()
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="VibeVoice returned an invalid transcription response",
+            ) from error
+        text = payload.get("text") if isinstance(payload, dict) else None
+        if not isinstance(text, str) or not text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No speech was recognized. Try recording again.",
+            )
+        return {"text": text.strip()[:8000]}
 
     @app.post("/v1/learning/questions", dependencies=[Depends(require_supabase_user)])
     async def learning_questions(

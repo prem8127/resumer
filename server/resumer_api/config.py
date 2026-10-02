@@ -25,6 +25,9 @@ class Settings:
     supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
     rapidapi_key: str = ""
+    vibevoice_asr_url: str = ""
+    vibevoice_asr_api_key: str = ""
+    vibevoice_asr_timeout_seconds: float = 240.0
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -57,4 +60,9 @@ class Settings:
             supabase_publishable_key=os.getenv("SUPABASE_PUBLISHABLE_KEY", "").strip(),
             supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip(),
             rapidapi_key=os.getenv("RAPIDAPI_KEY", "").strip(),
+            vibevoice_asr_url=os.getenv("VIBEVOICE_ASR_URL", "").strip().rstrip("/"),
+            vibevoice_asr_api_key=os.getenv("VIBEVOICE_ASR_API_KEY", "").strip(),
+            vibevoice_asr_timeout_seconds=float(
+                os.getenv("VIBEVOICE_ASR_TIMEOUT_SECONDS", "240")
+            ),
         )

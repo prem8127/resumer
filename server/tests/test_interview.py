@@ -82,3 +82,47 @@ def test_interview_surfaces_groq_unavailable_response(make_client):
         response = client.post("/v1/interview", json=VALID_PAYLOAD)
     assert response.status_code == 503
     assert response.json()["error"]["message"] == "temporarily unavailable"
+
+
+def _wav_bytes() -> bytes:
+    return b"RIFF" + (36).to_bytes(4, "little") + b"WAVE" + b"\x00" * 36
+
+
+def test_transcribe_interview_answer_forwards_wav_to_vibevoice(make_client):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == "https://asr.example/transcribe"
+        assert request.headers["authorization"] == "Bearer asr-test-key"
+        assert b"answer.wav" in request.content
+        assert b"audio/wav" in request.content
+        return httpx.Response(200, json={"text": "A spoken answer."})
+
+    with make_client(
+        handler,
+        vibevoice_asr_url="https://asr.example/transcribe",
+        vibevoice_asr_api_key="asr-test-key",
+    ) as client:
+        response = client.post(
+            "/v1/interview/transcribe",
+            files={"file": ("answer.wav", _wav_bytes(), "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"text": "A spoken answer."}
+
+
+def test_transcribe_requires_configured_vibevoice_service(make_client):
+    with make_client() as client:
+        response = client.post(
+            "/v1/interview/transcribe",
+            files={"file": ("answer.wav", _wav_bytes(), "audio/wav")},
+        )
+    assert response.status_code == 503
+
+
+def test_transcribe_rejects_non_wav_upload(make_client):
+    with make_client(vibevoice_asr_url="https://asr.example/transcribe") as client:
+        response = client.post(
+            "/v1/interview/transcribe",
+            files={"file": ("answer.wav", b"not a wav", "audio/wav")},
+        )
+    assert response.status_code == 415

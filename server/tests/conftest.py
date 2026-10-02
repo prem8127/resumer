@@ -17,6 +17,8 @@ def make_settings(
     supabase_publishable_key: str = "",
     supabase_service_role_key: str = "",
     rapidapi_key: str = "test-rapidapi-key",
+    vibevoice_asr_url: str = "",
+    vibevoice_asr_api_key: str = "",
 ) -> Settings:
     return Settings(
         groq_api_key=groq_api_key,
@@ -30,6 +32,8 @@ def make_settings(
         supabase_publishable_key=supabase_publishable_key,
         supabase_service_role_key=supabase_service_role_key,
         rapidapi_key=rapidapi_key,
+        vibevoice_asr_url=vibevoice_asr_url,
+        vibevoice_asr_api_key=vibevoice_asr_api_key,
     )
 
 
@@ -49,6 +53,8 @@ def make_client() -> Callable[..., TestClient]:
         learning_store_factory=None,
         supabase_service_role_key: str = "",
         rapidapi_key: str = "test-rapidapi-key",
+        vibevoice_asr_url: str = "",
+        vibevoice_asr_api_key: str = "",
     ) -> TestClient:
         transport = httpx.MockTransport(
             handler
@@ -61,6 +67,8 @@ def make_client() -> Callable[..., TestClient]:
                 supabase_publishable_key="test-publishable" if supabase_service_role_key else "",
                 supabase_service_role_key=supabase_service_role_key,
                 rapidapi_key=rapidapi_key,
+                vibevoice_asr_url=vibevoice_asr_url,
+                vibevoice_asr_api_key=vibevoice_asr_api_key,
             ),
             transport=transport,
             supabase_token_verifier=supabase_token_verifier,
