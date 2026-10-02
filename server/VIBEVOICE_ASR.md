@@ -5,26 +5,23 @@ listen to each question, record an answer, review its transcript, and continue
 with the existing answer, scoring, and career evidence flow.
 
 The Flutter app sends WAV audio to `POST /v1/interview/transcribe` on the
-Resumer API. That API forwards the file to a separately hosted VibeVoice
-transcription service and returns `{"text":"recognized words"}`. The upstream
-service must accept multipart form data in a field named `file`; the API
-forwards an optional bearer token.
+Resumer API. The API forwards it to the public Hugging Face Gradio Space using
+the server-side `gradio_client` library and returns `{"text":"recognized words"}`.
+The Space requires a private service key as its second API input.
 
 Configure the Resumer API service with:
 
-- `VIBEVOICE_ASR_URL`: the upstream service's transcription URL.
-- `VIBEVOICE_ASR_API_KEY`: optional bearer token required by that service.
-- `VIBEVOICE_ASR_TIMEOUT_SECONDS`: request timeout (defaults to 90 seconds).
+- `VIBEVOICE_ASR_URL`: the Hugging Face Space ID, for example
+  `ps783286/resmuer`.
+- `VIBEVOICE_ASR_API_KEY`: private key shared by the Space and Resumer API.
+- `VIBEVOICE_ASR_TIMEOUT_SECONDS`: request timeout (defaults to 240 seconds).
 
-The included `vibevoice_asr_service` folder builds the hosted CPU service as a
-Docker image. Deploy it on a container host with at least 4 GB RAM and 3 GB of
-available disk, set `VIBEVOICE_ASR_API_KEY` on that service, and expose its
-`/transcribe` path. Set `VIBEVOICE_ASR_URL` to that full path on the Resumer API
-and set the same key as `VIBEVOICE_ASR_API_KEY` there. The first container
-startup downloads the 1.58 GB quantized model; keep its model directory on a
-persistent volume so restarts do not download it again. The container listens
-on the host-provided `PORT` (or 7860 locally) and reports readiness at
-`/healthz`.
+The included `vibevoice_asr_service` folder supports Docker hosting; its
+`space_app.py` wrapper supports Hugging Face's free ZeroGPU Gradio runtime. The
+Space compiles Microsoft's CPU runtime and downloads the 1.58 GB quantized model
+at startup. Hugging Face's free ZeroGPU tier can sleep and has per-account GPU
+quotas, so cold starts and availability are best-effort. This implementation
+uses CPU inference and does not consume GPU quota.
 
 The transcription route accepts WAV files up to 20 MB and does not store them.
 The ASR model is not included in the app bundle or in the supplied source ZIP;
@@ -33,6 +30,7 @@ uses Microsoft's VibeVoice-ASR-BitNet runtime, whose official source and model
 are documented at
 <https://github.com/microsoft/VibeASR.cpp>.
 
-Without `VIBEVOICE_ASR_URL`, text answers and the existing interview features
-continue to work, while voice transcription returns a clear service-unavailable
-message. Vercel serves the Flutter web client and does not run the ASR model.
+Without `VIBEVOICE_ASR_URL` or the private key, text answers and the existing
+interview features continue to work, while voice transcription returns a clear
+service-unavailable message. Vercel serves the Flutter web client and does not
+run the ASR model.

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+import sys
+from types import SimpleNamespace
 
 import httpx
 
@@ -90,17 +93,28 @@ def _wav_bytes() -> bytes:
     return b"RIFF" + (36).to_bytes(4, "little") + b"WAVE" + b"\x00" * 36
 
 
-def test_transcribe_interview_answer_forwards_wav_to_vibevoice(make_client):
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert str(request.url) == "https://asr.example/transcribe"
-        assert request.headers["authorization"] == "Bearer asr-test-key"
-        assert b"answer.wav" in request.content
-        assert b"audio/wav" in request.content
-        return httpx.Response(200, json={"text": "A spoken answer."})
+def test_transcribe_interview_answer_forwards_wav_to_vibevoice(
+    make_client, monkeypatch
+):
+    class FakeClient:
+        def __init__(self, space: str, *, verbose: bool):
+            assert space == "ps783286/resmuer"
+            assert verbose is False
+
+        def predict(self, audio: str, service_key: str, *, api_name: str) -> str:
+            assert Path(audio).read_bytes().startswith(b"RIFF")
+            assert service_key == "asr-test-key"
+            assert api_name == "/transcribe"
+            return "A spoken answer."
+
+    monkeypatch.setitem(
+        sys.modules,
+        "gradio_client",
+        SimpleNamespace(Client=FakeClient, handle_file=lambda path: path),
+    )
 
     with make_client(
-        handler,
-        vibevoice_asr_url="https://asr.example/transcribe",
+        vibevoice_asr_url="ps783286/resmuer",
         vibevoice_asr_api_key="asr-test-key",
     ) as client:
         response = client.post(
@@ -122,7 +136,10 @@ def test_transcribe_requires_configured_vibevoice_service(make_client):
 
 
 def test_transcribe_rejects_non_wav_upload(make_client):
-    with make_client(vibevoice_asr_url="https://asr.example/transcribe") as client:
+    with make_client(
+        vibevoice_asr_url="ps783286/resmuer",
+        vibevoice_asr_api_key="asr-test-key",
+    ) as client:
         response = client.post(
             "/v1/interview/transcribe",
             files={"file": ("answer.wav", b"not a wav", "audio/wav")},

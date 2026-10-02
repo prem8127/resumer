@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import hashlib
+import os
 import secrets
+import tempfile
 
 from fastapi import (
     Depends,
@@ -443,11 +446,13 @@ def create_app(
 
     @app.post("/v1/interview/transcribe", dependencies=[Depends(require_api_key)])
     async def transcribe_interview_answer(
-        request: Request,
         file: UploadFile = File(...),
     ) -> dict[str, str]:
-        """Forward a short WAV answer to the separately hosted VibeVoice ASR."""
-        if not active_settings.vibevoice_asr_url:
+        """Forward a short WAV answer to the Hugging Face Gradio Space."""
+        if (
+            not active_settings.vibevoice_asr_url
+            or not active_settings.vibevoice_asr_api_key
+        ):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="VibeVoice transcription is not configured on the server",
@@ -460,41 +465,39 @@ def create_app(
         if not audio.startswith(b"RIFF") or audio[8:12] != b"WAVE":
             raise HTTPException(status_code=415, detail="Expected a WAV recording")
 
-        headers = {}
-        if active_settings.vibevoice_asr_api_key:
-            headers["Authorization"] = (
-                f"Bearer {active_settings.vibevoice_asr_api_key}"
-            )
         try:
-            upstream = await request.app.state.http.post(
-                active_settings.vibevoice_asr_url,
-                files={"file": ("answer.wav", audio, "audio/wav")},
-                headers=headers,
+            def call_space() -> object:
+                from gradio_client import Client, handle_file
+
+                with tempfile.NamedTemporaryFile(
+                    suffix=".wav", delete=False
+                ) as recording:
+                    recording.write(audio)
+                    audio_path = recording.name
+                try:
+                    client = Client(active_settings.vibevoice_asr_url, verbose=False)
+                    return client.predict(
+                        handle_file(audio_path),
+                        active_settings.vibevoice_asr_api_key,
+                        api_name="/transcribe",
+                    )
+                finally:
+                    os.unlink(audio_path)
+
+            text = await asyncio.wait_for(
+                asyncio.to_thread(call_space),
                 timeout=active_settings.vibevoice_asr_timeout_seconds,
             )
-        except httpx.TimeoutException as error:
+        except TimeoutError as error:
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="VibeVoice transcription timed out",
             ) from error
-        except httpx.HTTPError as error:
+        except Exception as error:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not reach the VibeVoice transcription service",
             ) from error
-        if upstream.status_code < 200 or upstream.status_code >= 300:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="VibeVoice could not transcribe this recording",
-            )
-        try:
-            payload = upstream.json()
-        except ValueError as error:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="VibeVoice returned an invalid transcription response",
-            ) from error
-        text = payload.get("text") if isinstance(payload, dict) else None
         if not isinstance(text, str) or not text.strip():
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
