@@ -6,6 +6,7 @@ import secrets
 import subprocess
 
 import gradio as gr
+import spaces
 from huggingface_hub import snapshot_download
 
 
@@ -44,6 +45,7 @@ def _prepare_runtime() -> None:
         )
 
 
+@spaces.GPU(duration=180)
 def transcribe(audio_path: str | None, supplied_key: str) -> str:
     if not API_KEY:
         raise gr.Error("The transcription service key is not configured yet.")
